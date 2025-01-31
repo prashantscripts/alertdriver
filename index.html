@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yoga Pose Detection</title>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            margin: 0;
+            padding: 0;
+            background-color: #F7F6F2;
+            color: #333;
+        }
+
+        header {
+            text-align: center;
+            padding: 20px;
+            background-color: #B8E4C9;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+
+        header h1 {
+            font-size: 2.5em;
+            color: #4A7A76;
+            margin: 0;
+        }
+
+        main {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+
+        section {
+            background-color: #FAF3E0;
+            border-radius: 12px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            margin: 15px;
+            padding: 20px;
+            width: 100%;
+            max-width: 600px;
+            text-align: center;
+        }
+
+        section h2 {
+            color: #6A89AA;
+            font-size: 1.8em;
+            margin-bottom: 10px;
+        }
+
+        .start-btn {
+            padding: 12px 40px;
+            font-size: 1.2em;
+            color: #FFF;
+            background-color: #6A89AA;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background-color 0.3s ease;
+        }
+
+        .start-btn:hover {
+            background-color: #5B7896;
+        }
+
+        #webcam-container, #label-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+
+        .highlight {
+            font-weight: bold;
+            color: #4A7A76;
+            font-size: 1.5em;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <h1>Yoga Pose Detection</h1>
+</header>
+
+<main>
+    <section>
+        <h2>Start Yoga Pose Detection</h2>
+        <button class="start-btn" onclick="init()">Start Pose Detection</button>
+        <div id="webcam-container"></div>
+        <div id="label-container"></div>
+    </section>
+</main>
+
+<script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@latest/dist/tf.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
+<script type="text/javascript">
+    // Local URLs for model and metadata in the "my_model" folder
+    const URL = "./my_model/";
+    const modelURL = URL + "model.json";
+    const metadataURL = URL + "metadata.json";
+
+    let model, webcam, labelContainer, maxPredictions, classNames = [];
+
+    async function init() {
+        try {
+            // Load the model and metadata
+            model = await tmImage.load(modelURL, metadataURL);
+            maxPredictions = model.getTotalClasses();
+
+            // Fetch metadata to get class names
+            const response = await fetch(metadataURL);
+            const metadata = await response.json();
+            classNames = metadata.labels; // Get class names from metadata
+
+            const flip = true; // Flip the webcam image
+            webcam = new tmImage.Webcam(200, 200, flip); // Create a webcam instance
+            await webcam.setup(); // Request access to the webcam
+            await webcam.play(); // Start the webcam
+            window.requestAnimationFrame(loop); // Start the loop
+
+            document.getElementById("webcam-container").appendChild(webcam.canvas);
+            labelContainer = document.getElementById("label-container");
+            labelContainer.appendChild(document.createElement("div")); // Only need one label for the top pose
+        } catch (error) {
+            console.error("Error initializing the camera or model:", error);
+            alert("There was an error accessing the camera or loading the model. Please check the files and permissions.");
+        }
+    }
+
+    async function loop() {
+        webcam.update(); // Update the webcam frame
+        await predict(); // Run the pose prediction
+        window.requestAnimationFrame(loop); // Continue the loop
+    }
+
+    async function predict() {
+        const prediction = await model.predict(webcam.canvas);
+        const poses = prediction.map((p, i) => ({
+            name: classNames[i], // Use actual class names from metadata
+            confidence: p.probability
+        }));
+
+        poses.sort((a, b) => b.confidence - a.confidence); // Sort by confidence
+        const topPose = poses[0]; // Get the most confident pose
+
+        labelContainer.innerHTML = ''; // Clear previous labels
+        if (topPose.confidence >= 0.8) { // Display only if confidence is 80% or higher
+            const poseDiv = document.createElement("div");
+            poseDiv.classList.add("pose", "highlight");
+            poseDiv.textContent = `${topPose.name}: ${Math.round(topPose.confidence * 100)}%`;
+            labelContainer.appendChild(poseDiv);
+        }
+    }
+</script>
+
+</body>
+</html>
