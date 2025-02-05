@@ -8,20 +8,17 @@
     <script src="https://cdn.jsdelivr.net/npm/@teachablemachine/image@latest/dist/teachablemachine-image.min.js"></script>
     <style>
         body { text-align: center; font-family: Arial, sans-serif; }
-        video { width: 400px; }
         #webcam-container { margin-top: 20px; }
+        #status { font-size: 1.5em; font-weight: bold; margin-top: 10px; }
     </style>
 </head>
 <body>
     <h1>Drowsiness Detection AI</h1>
-    <video id="mockVideo" controls>
-        <source src="mock-driving.mp4" type="video/mp4">
-        Your browser does not support the video tag.
-    </video>
     <button onclick="init()">Start Detection</button>
     <div id="webcam-container"></div>
     <div id="label-container"></div>
-    <audio id="alarm" src="alarm.mp3"></audio>
+    <div id="status">Status: Waiting...</div>
+    <audio id="alarm" src="./my_model/alarm.wav"></audio>
     
     <script>
         const URL = "./my_model/";
@@ -58,16 +55,19 @@
             let closedEyesDetected = false;
             
             for (let i = 0; i < maxPredictions; i++) {
-                const classPrediction = prediction[i].className + ": " + prediction[i].probability.toFixed(2);
+                const className = prediction[i].className;
+                const probability = prediction[i].probability.toFixed(2);
+                const classPrediction = className + ": " + probability;
                 labelContainer.childNodes[i].innerHTML = classPrediction;
                 
-                if (prediction[i].className.toLowerCase().includes("closed") && prediction[i].probability > 0.8) {
+                if (className.toLowerCase().includes("closed") && probability > 0.95) {
                     closedEyesDetected = true;
                 }
             }
             
             if (closedEyesDetected) {
                 eyesClosedTime++;
+                document.getElementById("status").innerText = "Status: Eyes Closed";
                 if (eyesClosedTime >= 50 && !alarmTriggered) { // 50 frames ~5 sec
                     document.getElementById("alarm").play();
                     alarmTriggered = true;
@@ -75,6 +75,7 @@
             } else {
                 eyesClosedTime = 0;
                 alarmTriggered = false;
+                document.getElementById("status").innerText = "Status: Eyes Open";
             }
         }
     </script>
